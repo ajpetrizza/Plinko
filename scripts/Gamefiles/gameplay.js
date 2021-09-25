@@ -5,6 +5,8 @@ var Engine = Matter.Engine,
   Composite = Matter.Composite;
 
 // Possible globals for the need of references
+const screen = document.getElementById('Plinko');
+const bounds = screen.getBoundingClientRect();
 var engine;
 var runner;
 var puck;
@@ -20,7 +22,7 @@ function setup() {
   engine = Engine.create();
   //create objects/bodies
   //puck = new Puck(200, 100, 20);
-  ground = new Ground(width / 2, height, width, 50);
+  //ground = new Ground(width / 2, height, width, 50);
   walls = new createWalls(50, height);
   //create the runner
   runner = Runner.create();
@@ -31,28 +33,52 @@ function setup() {
 
 function draw() {
   background(172);
-  if (puck) {
+  if (puck && !puck.isOffScreen()) {
     puck.show();
   }
-  ground.show();
+  //ground.show();
   walls.show();
+  //console.log(Composite.allBodies(engine.world));
   // for (var i = 0; i < discs.length; i++) {
   //   discs[i].show();
   // }
 }
 
+/////////////// --- GAME FUNCTIONALITY --- ///////////////
+
+// variable to see if the game is in progress
+var inProgress;
+
 //function for pressing mouse
 function mousePressed() {
   // discs.push(new Puck(mouseX, mouseY, 28));
-  puck = new Puck(mouseX, mouseY, 28);
+  if (!inProgress) {
+    startDrop(mouseX, mouseY);
+  }
+}
+
+//check to see if the game is in progress
+function startDrop(x, y) {
+  //check if the mouse is in the window we allow for dropping
+  if (checkBounds(x, y)) {
+    puck = new Puck(x, y, 28);
+    inProgress = true;
+  }
+}
+
+//function to check if click was in our bounds
+function checkBounds(clickX, clickY) {
+  console.log(bounds);
+  console.log('X & Y: ', clickX, clickY);
+  return ((clickX > bounds.left && clickX < bounds.right) && (clickY > bounds.top && clickY < bounds.bottom - 500));
 }
 
 
 
 
 
-//class functions for creating specific objects
-//or the environment itself
+/////////////// --- ENVIRONMENT --- ///////////////
+
 // ---The disc itself---
 function Puck(x, y, diameter) {
   this.body = Bodies.circle(x, y, diameter / 2);
@@ -66,6 +92,17 @@ function Puck(x, y, diameter) {
     translate(pos.x, pos.y);
     circle(0, 0, this.diameter);
     pop();
+  }
+
+  this.isOffScreen = function () {
+    var pos = this.body.position;
+    if (pos.y > 600) {
+      Composite.remove(engine.world, this.body);
+      inProgress = false;
+      return true;
+    } else {
+      return false;
+    }
   }
 }
 //---The floor---
