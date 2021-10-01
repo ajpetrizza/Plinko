@@ -16,8 +16,10 @@ var puck;
 var ground;
 var walls;
 var pegs = [];
+let pegColors = ['RoyalBlue', 'DarkViolet', 'HotPink', 'Crimson', 'DarkOrange', 'Gold', 'GreenYellow'];
 var movingPegsLeft = [];
 var movingPegsRight = [];
+var buckets = [];
 //var discs = [];
 
 // P5 initial setup
@@ -31,6 +33,7 @@ function setup() {
   //ground = new Ground(width / 2, height, width, 50);
   walls = new createWalls(50, height);
   createPegs(8);
+  createBuckets();
   //create the runner
   runner = Runner.create();
   //run the engine
@@ -39,8 +42,9 @@ function setup() {
 
 function draw() {
   background(172);
-  if (puck && !puck.isOffScreen()) {
+  if (puck && inProgress) {
     puck.show();
+    puck.isOffScreen();
   }
   //ground.show();
   walls.show();
@@ -56,11 +60,13 @@ function draw() {
   }
   for (var i = 0; i < movingPegsRight.length; i++) {
     movingPegsRight[i].show();
-
   }
-
+  // buckets
+  for (var i = 0; i < buckets.length; i++) {
+    buckets[i].show();
+  }
   //console.log(movingPegsLeft[0].body.position.x);
-  //console.log(Composite.allBodies(engine.world));
+  //console.log(Composite.allBodies(engine.world).length);
   // for (var i = 0; i < discs.length; i++) {
   //   discs[i].show();
   // }
@@ -77,7 +83,6 @@ function mousePressed() {
   if (!inProgress) {
     startDrop(mouseX, mouseY);
   }
-  console.log(Body);
 }
 
 //check to see if the game is in progress
@@ -107,6 +112,8 @@ function Puck(x, y, diameter) {
   var options = { restitution: .8, friction: 0 }
   this.body = Bodies.circle(x, y, diameter / 2, options);
   this.diameter = diameter;
+
+  this.body.label = 'hog';
   Composite.add(engine.world, this.body);
 
   this.show = function () {
@@ -120,12 +127,9 @@ function Puck(x, y, diameter) {
 
   this.isOffScreen = function () {
     var pos = this.body.position;
-    if (pos.y > 600) {
+    if (pos.y > 620) {
       Composite.remove(engine.world, this.body);
       inProgress = false;
-      return true;
-    } else {
-      return false;
     }
   }
 }
@@ -152,6 +156,10 @@ function createWalls(w, h) {
   this.wall2 = Bodies.rectangle(width + (w / 2) - 5, h / 2, w, h, { isStatic: true });
   this.w = w;
   this.h = h;
+  // labeling bodies for info
+  this.wall1.label = 'leftWall';
+  this.wall2.label = 'rightWall';
+  // add them to the composite
   Composite.add(engine.world, this.wall1);
   Composite.add(engine.world, this.wall2);
 
@@ -170,89 +178,95 @@ function createWalls(w, h) {
 // ---The Pegs---
 function createPegs(n) {
   var spacing = (454 - (n * 10)) / (n - 1);
-  //var spacing2 = (479 - (n * 8)) / (n - 1);
-  // var topRowX = 32;
-  // var lowRowX = 16.5;
-  // for (var i = 0; i < n; i++) {
-  //   var peg = new Peg(topRowX + (spacing * i), 125, 6);
-  //   pegs.push(peg);
-  // }
 
   //FIRST ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 125, 10);
+    var peg = new Peg(13 + (spacing * i), 100, 10);
     pegs.push(peg);
   }
   // SECOND ROW
   for (var i = 0; i < n - 1; i++) {
-    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 165, 10);
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 140, 10);
     pegs.push(peg);
   }
   // THIRD ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 205, 10);
+    var peg = new Peg(13 + (spacing * i), 180, 10);
     pegs.push(peg);
   }
   // FOURTH ROW
   for (var i = 0; i < n - 1; i++) {
-    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 245, 10, true);
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 220, 10, true);
     movingPegsLeft.push(peg);
   }
   // FIFTH ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 285, 10);
+    var peg = new Peg(13 + (spacing * i), 260, 10);
     pegs.push(peg);
   }
   // SIXTH ROW
   for (var i = 0; i < n - 1; i++) {
-    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 325, 10);
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 300, 10);
     pegs.push(peg);
   }
   // SEVENTH ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 365, 10);
+    var peg = new Peg(13 + (spacing * i), 340, 10);
     pegs.push(peg);
   }
   // EIGHTH ROW
   for (var i = 0; i < n - 1; i++) {
-    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 405, 10, true);
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 380, 10, true);
     movingPegsRight.push(peg);
   }
   // NINETH ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 445, 10);
+    var peg = new Peg(13 + (spacing * i), 420, 10);
     pegs.push(peg);
   }
   // TENTH ROW
   for (var i = 0; i < n - 1; i++) {
     if (i === 1 || i === 5) {
-      var boostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 485, 25);
+      var boostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 460, 25);
       pegs.push(boostPeg);
     } else {
-      var peg = new Peg(13 + (spacing / 2) + (spacing * i), 485, 10);
+      var peg = new Peg(13 + (spacing / 2) + (spacing * i), 460, 10);
       pegs.push(peg);
     }
-
   }
   // ELEVENTH ROW
   for (var i = 0; i < n; i++) {
-    var peg = new Peg(13 + (spacing * i), 525, 10);
+    var peg = new Peg(13 + (spacing * i), 500, 10);
+    pegs.push(peg);
+  }
+  // TWELVETH ROW
+  for (var i = 0; i < n - 1; i++) {
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 540, 10, true);
     pegs.push(peg);
   }
 }
 
+//THE PEG OBJECT
 function Peg(x, y, d, isMoving) {
-  var options = { isStatic: true, restitution: 0.3, friction: 0.4 }
+  var options = { isStatic: true, restitution: 0.4, friction: 0 }
   this.body = Bodies.circle(x, y, d / 2, options);
+  // adding properties for interaction
+  this.body.label = 'peg';
+  this.body.hitCount = 0;
   Composite.add(engine.world, this.body);
   this.x = x;
   this.y = y;
   this.d = d;
-  console.log(this.body.position);
+
+
   this.show = function () {
     var pos = this.body.position;
+    // reseting colors after game is finished
+    if (!inProgress) {
+      this.body.hitCount = 0;
+    }
     push();
-    fill(50, 80, 160);
+    fill(pegColors[this.body.hitCount]);
     if (isMoving) {
       translate(pos.x, pos.y);
       circle(0, 0, this.d);
@@ -264,7 +278,7 @@ function Peg(x, y, d, isMoving) {
 }
 
 function BoostPeg(x, y, d) {
-  var options = { isStatic: true, restitution: 0.9, friction: 0.4 }
+  var options = { isStatic: true, restitution: 0.9, friction: 0.4 };
   this.body = Bodies.circle(x, y, d / 2, options);
   Composite.add(engine.world, this.body);
   this.x = x;
@@ -274,8 +288,51 @@ function BoostPeg(x, y, d) {
   this.show = function () {
     var pos = this.body.position;
     push();
-    fill(200, 80, 30);
+    fill('Yellow');
     circle(this.x, this.y, this.d);
+    pop();
+  }
+}
+
+function createBuckets() {
+  // bucket one
+  var bucket1 = new Bucket(65, 620, 10, 75);
+  buckets.push(bucket1);
+  // bucket two
+  var bucket2 = new Bucket(120, 620, 10, 75);
+  buckets.push(bucket2);
+
+  // goal buckets
+  var goal1 = new Bucket(176, 620, 10, 75);
+  buckets.push(goal1);
+  var goal2 = new Bucket(224, 620, 10, 75);
+  buckets.push(goal2);
+  ///////////////
+
+  // bucket 3
+  var bucket3 = new Bucket(280, 620, 10, 75);
+  buckets.push(bucket3);
+  // bucket 4
+  var bucket3 = new Bucket(335, 620, 10, 75);
+  buckets.push(bucket3);
+}
+
+function Bucket(x, y, width, height) {
+  var chamfer = { radius: 10 }
+  var options = { isStatic: true, restitution: 0.7, friction: 0.8, chamfer: chamfer };
+  this.body = Bodies.rectangle(x, y, width, height, options);
+  Composite.add(engine.world, this.body);
+  this.x = x;
+  this.y = y;
+  this.width = width;
+  this.height = height;
+
+  this.show = function () {
+    var pos = this.body.position;
+    push();
+    fill(50, 120, 30);
+    rectMode(CENTER);
+    rect(this.x, this.y, this.width, this.height, 10);
     pop();
   }
 }
@@ -328,3 +385,13 @@ function moveLeft(peg, pegArray, row) {
     }
   }
 }
+
+// Collisions
+Events.on(engine, 'collisionEnd', function (event) {
+  var peg = (event.pairs[0].bodyA.label === 'peg') ? event.pairs[0].bodyA : '';
+  if (peg.hitCount === 6) {
+    peg.hitCount = 0;
+  } else {
+    peg.hitCount += 1;
+  }
+});
