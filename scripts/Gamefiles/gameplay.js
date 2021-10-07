@@ -12,15 +12,21 @@ const bounds = screen.getBoundingClientRect();
 var engine = Engine.create();
 var runner;
 // Game board pieces
+var hog;
 var puck;
 var ground;
 var walls;
 var pegs = [];
-let pegColors = ['RoyalBlue', 'DarkViolet', 'HotPink', 'Crimson', 'DarkOrange', 'Gold', 'GreenYellow'];
+let pegColors = ['RoyalBlue', 'DarkTurquoise', 'HotPink', 'Red', 'Orange', 'Gold', 'LimeGreen'];
 var movingPegsLeft = [];
 var movingPegsRight = [];
 var buckets = [];
 //var discs = [];
+
+/////////////// --- SETTING UP FILE --- ///////////////
+function preload() {
+  hog = loadImage('hedgehog-round-30.png');
+}
 
 // P5 initial setup
 function setup() {
@@ -41,18 +47,17 @@ function setup() {
 }
 
 function draw() {
-  background(172);
+  background(5);
   if (puck && inProgress) {
     puck.show();
     puck.isOffScreen();
   }
   //ground.show();
   walls.show();
-
+  //Regular pegs
   for (var i = 0; i < pegs.length; i++) {
     pegs[i].show();
   }
-
   // moving pegs
   for (var i = 0; i < movingPegsLeft.length; i++) {
     movingPegsLeft[i].show();
@@ -120,8 +125,9 @@ function Puck(x, y, diameter) {
     var pos = this.body.position;
 
     push();
-    translate(pos.x, pos.y);
-    circle(0, 0, this.diameter);
+    translate(pos.x - 15, pos.y - 15);
+    //circle(0, 0, this.diameter);
+    image(hog, 0, 0)
     pop();
   }
 
@@ -168,7 +174,7 @@ function createWalls(w, h) {
     var pos2 = this.wall2.position;
     push();
     noStroke();
-    fill(80, 20, 100);
+    fill('IndianRed');
     rectMode(CENTER);
     rect(0 - (this.w / 2) + 5, h / 2, w, this.h);
     rect(width + (this.w / 2) - 5, h / 2, w, h);
@@ -248,16 +254,25 @@ function createPegs(n) {
 
 //THE PEG OBJECT
 function Peg(x, y, d, isMoving) {
+  // options for changing behaviors
   var options = { isStatic: true, restitution: 0.4, friction: 0 }
   this.body = Bodies.circle(x, y, d / 2, options);
   // adding properties for interaction
   this.body.label = 'peg';
   this.body.hitCount = 0;
+  this.body.splashes = [];
+  this.body.addSplash = function () {
+    var pos = this.position;
+    //splash variable
+    var splashObj = new Splash(pos.x, pos.y, 5, this.circleRadius, pegColors[this.hitCount]);
+    this.splashes.push(splashObj);
+  }
+  // add to the world
   Composite.add(engine.world, this.body);
+  // personal properties to pass around
   this.x = x;
   this.y = y;
   this.d = d;
-
 
   this.show = function () {
     var pos = this.body.position;
@@ -274,23 +289,108 @@ function Peg(x, y, d, isMoving) {
       circle(this.x, this.y, this.d);
     }
     pop();
+    // loop through splashes and show them as they happen
+    // remove them if transparency is 0
+    for (var i = 0; i < this.body.splashes.length; i++) {
+      if (this.body.splashes[i].shouldShow) {
+        this.body.splashes[i].show();
+      } else {
+        this.body.splashes.splice(i, 1);
+      }
+    }
+  }
+
+
+}
+// splash animations for pegs being hit
+function Splash(x, y, starter, parentSize, colorValue) {
+  // Variables for animations
+  this.max = parentSize * 2.2;
+  this.starter = starter;
+  this.transparency = 80;
+  this.shouldShow = true;
+  // grab the colors and get the values
+  let c = color(colorValue);
+  let r = red(c);
+  let g = green(c);
+  let b = blue(c);
+
+  this.show = function () {
+    push();
+    noFill();
+    strokeWeight(3);
+    stroke(r, g, b, this.transparency);
+    circle(x, y, this.starter);
+    pop();
+    this.update();
+  }
+
+  this.update = function () {
+    this.transparency -= 2;
+    this.starter += 1
+    if (this.transparency <= 0) {
+      this.shouldShow = false;
+    }
   }
 }
 
+// Special velocity changing boost pegs
 function BoostPeg(x, y, d) {
   var options = { isStatic: true, restitution: 0.9, friction: 0.4 };
   this.body = Bodies.circle(x, y, d / 2, options);
+  this.body.label = 'boostPeg';
   Composite.add(engine.world, this.body);
   this.x = x;
   this.y = y;
   this.d = d;
 
+  //see how many pulses are out at one time
+  this.count = 0;
+  var isPulsing = false;
+  //createPulses(this.x, this.y, this.d - 2);
+  var pulse1 = new boostPegLights(x, y, d - 5, 30);
+  var pulse2 = new boostPegLights(x, y, d - 20, 30);
+
   this.show = function () {
     var pos = this.body.position;
     push();
-    fill('Yellow');
+    fill(255, 255, 0);
     circle(this.x, this.y, this.d);
     pop();
+    // now animate the radiating colors
+    pulse1.show();
+    pulse2.show();
+  }
+
+  this.startPulses = function () {
+    isPulsing = true;
+
+  }
+}
+// waves effect for BoostPegs
+function boostPegLights(x, y, d, parentSize) {
+  // Variables for animations
+  this.max = parentSize * 2.2;
+  this.starter = d;
+  this.transparency = 120;
+
+  this.show = function () {
+    push();
+    noFill();
+    strokeWeight(3);
+    stroke(255, 255, 0, this.transparency);
+    circle(x, y, this.starter);
+    pop();
+    this.update();
+  }
+
+  this.update = function () {
+    this.transparency -= 2;
+    this.starter += 0.5
+    if (this.starter > this.max) {
+      this.transparency = 120;
+      this.starter = 25;
+    }
   }
 }
 
@@ -388,10 +488,38 @@ function moveLeft(peg, pegArray, row) {
 
 // Collisions
 Events.on(engine, 'collisionEnd', function (event) {
-  var peg = (event.pairs[0].bodyA.label === 'peg') ? event.pairs[0].bodyA : '';
-  if (peg.hitCount === 6) {
-    peg.hitCount = 0;
-  } else {
-    peg.hitCount += 1;
+  //console.log(event.pairs[0]);
+  // Peg Collision
+  var peg;
+  var boost;
+  var hog;
+  if (event.pairs[0].bodyA.label === 'peg') {
+    peg = event.pairs[0].bodyA;
+    hog = event.pairs[0].bodyB;
+  }
+  if (event.pairs[0].bodyB.label === 'peg') {
+    peg = event.pairs[0].bodyB;
+    hog = event.pairs[0].bodyA;
+  }
+  if (peg) {
+    if (peg.hitCount === 6) {
+      peg.hitCount = 0;
+    } else {
+      peg.hitCount += 1;
+      peg.addSplash();
+    }
+  }
+  ///////
+  // Boost peg collision
+  if (event.pairs[0].bodyA.label === 'boostPeg') {
+    boost = event.pairs[0].bodyA;
+    hog = event.pairs[0].bodyB;
+    console.log(hog);
+    Body.setVelocity(hog, { x: 0, y: -10 });
+  }
+  if (event.pairs[0].bodyB.label === 'boostPeg') {
+    boost = event.pairs[0].bodyB;
+    hog = event.pairs[0].bodyA;
+    Body.setVelocity(hog, { x: 0, y: -10 });
   }
 });
