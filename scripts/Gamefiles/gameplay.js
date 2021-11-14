@@ -14,6 +14,8 @@ var runner;
 // Game board pieces
 var hog;
 var puck;
+var trail;
+var trailArray = [];
 var ground;
 var walls;
 var pegs = [];
@@ -49,6 +51,12 @@ function setup() {
 function draw() {
   background(5);
   if (puck && inProgress) {
+    // loop and show TRAIL FIRST
+    for (var i = 0; i < trailArray.length; i++) {
+
+      trailArray[i].show();
+    }
+    //puck on top
     puck.show();
     puck.isOffScreen();
   }
@@ -95,6 +103,8 @@ function startDrop(x, y) {
   //check if the mouse is in the window we allow for dropping
   if (checkBounds(x, y)) {
     puck = new Puck(x, y, 30);
+    trail = new Trail(x, y, 28);
+    trailArray.push(trail);
     inProgress = true;
   }
 }
@@ -121,14 +131,24 @@ function Puck(x, y, diameter) {
   this.body.label = 'hog';
   Composite.add(engine.world, this.body);
 
+  //this.trailArray = [];
+
   this.show = function () {
     var pos = this.body.position;
-
     push();
-    translate(pos.x - 15, pos.y - 15);
+    angleMode(RADIANS);
+    imageMode(CENTER);
+    //translate(pos.x - 15, pos.y - 15);
+    translate(pos.x, pos.y);
+    rotate(this.body.angle);
     //circle(0, 0, this.diameter);
     image(hog, 0, 0)
     pop();
+    this.addTrail();
+    //show the trail
+    // for (var i = 0; i < this.trailArray.length; i++) {
+    //   this.trailArray[i].show();
+    // }
   }
 
   this.isOffScreen = function () {
@@ -136,6 +156,41 @@ function Puck(x, y, diameter) {
     if (pos.y > 620) {
       Composite.remove(engine.world, this.body);
       inProgress = false;
+    }
+  }
+
+  // Function for adding a trail
+  this.addTrail = function () {
+    var trail = new Trail(this.body.position.x, this.body.position.y, this.diameter - 2);
+    trailArray.push(trail);
+  }
+}
+// --- Trail ---
+function Trail(x, y, diameter) {
+  this.shouldShow = true;
+  this.x = x;
+  this.y = y;
+  this.startSize = diameter;
+
+  this.show = function () {
+    if (!this.shouldShow) {
+      return;
+    }
+    push();
+    noFill();
+    //if (this.shouldShow) {
+    stroke(30, 200, 10, 50);
+    strokeWeight(3);
+    circle(x, y, this.startSize);
+    //}
+    pop();
+    this.shrink();
+  }
+
+  this.shrink = function () {
+    this.startSize -= 1;
+    if (this.startSize <= 0) {
+      this.shouldShow = false;
     }
   }
 }
@@ -255,7 +310,7 @@ function createPegs(n) {
 //THE PEG OBJECT
 function Peg(x, y, d, isMoving) {
   // options for changing behaviors
-  var options = { isStatic: true, restitution: 0.4, friction: 0 }
+  var options = { isStatic: true, restitution: 0.8, friction: 0.1 }
   this.body = Bodies.circle(x, y, d / 2, options);
   // adding properties for interaction
   this.body.label = 'peg';
@@ -514,7 +569,7 @@ Events.on(engine, 'collisionEnd', function (event) {
   if (event.pairs[0].bodyA.label === 'boostPeg') {
     boost = event.pairs[0].bodyA;
     hog = event.pairs[0].bodyB;
-    console.log(hog);
+    console.log(event.pairs[0]);
     Body.setVelocity(hog, { x: 0, y: -10 });
   }
   if (event.pairs[0].bodyB.label === 'boostPeg') {
