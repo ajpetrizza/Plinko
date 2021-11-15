@@ -22,6 +22,8 @@ var pegs = [];
 let pegColors = ['RoyalBlue', 'DarkTurquoise', 'HotPink', 'Red', 'Orange', 'Gold', 'LimeGreen'];
 var movingPegsLeft = [];
 var movingPegsRight = [];
+var leftBoostPeg;
+var rightBoostPeg;
 var buckets = [];
 //var discs = [];
 
@@ -74,6 +76,8 @@ function draw() {
   for (var i = 0; i < movingPegsRight.length; i++) {
     movingPegsRight[i].show();
   }
+  leftBoostPeg.show();
+  rightBoostPeg.show();
   // buckets
   for (var i = 0; i < buckets.length; i++) {
     buckets[i].show();
@@ -129,26 +133,36 @@ function Puck(x, y, diameter) {
   this.diameter = diameter;
 
   this.body.label = 'hog';
+
+  this.body.hitBoostPeg = function (boostPosition) {
+    console.log('HOG POSITION ', this.position);
+    console.log('BOOST PEG POSITION ', boostPosition);
+    var xVelocity = (this.position.x) - (boostPosition.x);
+    var yVelocity = (this.position.y) - (boostPosition.y);
+    xVelocity /= 5;
+    yVelocity /= 5;
+    console.log('CURRENT X Y velocity', xVelocity, yVelocity);
+    Body.setVelocity(this, { x: xVelocity, y: yVelocity });
+
+  }
+
   Composite.add(engine.world, this.body);
 
-  //this.trailArray = [];
 
   this.show = function () {
     var pos = this.body.position;
     push();
     angleMode(RADIANS);
     imageMode(CENTER);
-    //translate(pos.x - 15, pos.y - 15);
+
     translate(pos.x, pos.y);
     rotate(this.body.angle);
-    //circle(0, 0, this.diameter);
+
     image(hog, 0, 0)
     pop();
+    // console.log('POSITiton ', pos);
+    // adds a new trail on to the chain
     this.addTrail();
-    //show the trail
-    // for (var i = 0; i < this.trailArray.length; i++) {
-    //   this.trailArray[i].show();
-    // }
   }
 
   this.isOffScreen = function () {
@@ -156,6 +170,7 @@ function Puck(x, y, diameter) {
     if (pos.y > 620) {
       Composite.remove(engine.world, this.body);
       inProgress = false;
+      trailArray = [];
     }
   }
 
@@ -177,18 +192,18 @@ function Trail(x, y, diameter) {
       return;
     }
     push();
-    noFill();
-    //if (this.shouldShow) {
-    stroke(30, 200, 10, 50);
-    strokeWeight(3);
+    noStroke();
+
+    fill(30, 220, 100, 125);
+    //strokeWeight(3);
     circle(x, y, this.startSize);
-    //}
+
     pop();
     this.shrink();
   }
 
   this.shrink = function () {
-    this.startSize -= 1;
+    this.startSize -= 1.2;
     if (this.startSize <= 0) {
       this.shouldShow = false;
     }
@@ -267,8 +282,13 @@ function createPegs(n) {
   }
   // SIXTH ROW
   for (var i = 0; i < n - 1; i++) {
-    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 300, 10);
-    pegs.push(peg);
+    if (i === 3) {
+      var boostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 300, 10);
+      pegs.push(boostPeg);
+    } else {
+      var peg = new Peg(13 + (spacing / 2) + (spacing * i), 300, 10);
+      pegs.push(peg);
+    }
   }
   // SEVENTH ROW
   for (var i = 0; i < n; i++) {
@@ -282,14 +302,27 @@ function createPegs(n) {
   }
   // NINETH ROW
   for (var i = 0; i < n; i++) {
+    // Making room for boost pegs
+    if (i === 1 || i === 2 || i === 5 || i === 6) {
+      continue;
+    }
     var peg = new Peg(13 + (spacing * i), 420, 10);
     pegs.push(peg);
   }
   // TENTH ROW
   for (var i = 0; i < n - 1; i++) {
+    // Make room for boost pegs
+    // if (i === 0 || i === 2 || i === 4 || i === 6) {
+    //   continue;
+    // }
     if (i === 1 || i === 5) {
-      var boostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 460, 25);
-      pegs.push(boostPeg);
+      if (leftBoostPeg) {
+        rightBoostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 460, 40, true);
+      } else {
+        leftBoostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 460, 40, true);
+      }
+
+      //pegs.push(boostPeg);
     } else {
       var peg = new Peg(13 + (spacing / 2) + (spacing * i), 460, 10);
       pegs.push(peg);
@@ -297,6 +330,11 @@ function createPegs(n) {
   }
   // ELEVENTH ROW
   for (var i = 0; i < n; i++) {
+    // Making room for boost pegs
+    if (i === 1 || i === 2 || i === 5 || i === 6) {
+      continue;
+    }
+
     var peg = new Peg(13 + (spacing * i), 500, 10);
     pegs.push(peg);
   }
@@ -362,7 +400,7 @@ function Splash(x, y, starter, parentSize, colorValue) {
   // Variables for animations
   this.max = parentSize * 2.2;
   this.starter = starter;
-  this.transparency = 80;
+  this.transparency = 100;
   this.shouldShow = true;
   // grab the colors and get the values
   let c = color(colorValue);
@@ -390,7 +428,7 @@ function Splash(x, y, starter, parentSize, colorValue) {
 }
 
 // Special velocity changing boost pegs
-function BoostPeg(x, y, d) {
+function BoostPeg(x, y, d, moveUp) {
   var options = { isStatic: true, restitution: 0.9, friction: 0.4 };
   this.body = Bodies.circle(x, y, d / 2, options);
   this.body.label = 'boostPeg';
@@ -398,23 +436,26 @@ function BoostPeg(x, y, d) {
   this.x = x;
   this.y = y;
   this.d = d;
+  this.moveUp = moveUp;
 
   //see how many pulses are out at one time
   this.count = 0;
   var isPulsing = false;
   //createPulses(this.x, this.y, this.d - 2);
-  var pulse1 = new boostPegLights(x, y, d - 5, 30);
-  var pulse2 = new boostPegLights(x, y, d - 20, 30);
+  var pulse1 = new boostPegLights(30);
+  var pulse2 = new boostPegLights(10);
 
   this.show = function () {
     var pos = this.body.position;
     push();
     fill(255, 255, 0);
-    circle(this.x, this.y, this.d);
+    translate(pos.x, pos.y);
+    circle(0, 0, this.d);
+    //circle(this.x, this.y, this.d);
     pop();
     // now animate the radiating colors
-    pulse1.show();
-    pulse2.show();
+    pulse1.show(pos.x, pos.y);
+    pulse2.show(pos.x, pos.y);
   }
 
   this.startPulses = function () {
@@ -423,25 +464,26 @@ function BoostPeg(x, y, d) {
   }
 }
 // waves effect for BoostPegs
-function boostPegLights(x, y, d, parentSize) {
+function boostPegLights(d) {
   // Variables for animations
-  this.max = parentSize * 2.2;
+  this.max = 400;
   this.starter = d;
   this.transparency = 120;
 
-  this.show = function () {
+  this.show = function (x, y) {
     push();
     noFill();
     strokeWeight(3);
     stroke(255, 255, 0, this.transparency);
-    circle(x, y, this.starter);
+    translate(x, y);
+    circle(0, 0, this.starter);
     pop();
     this.update();
   }
 
   this.update = function () {
-    this.transparency -= 2;
-    this.starter += 0.5
+    this.transparency -= 1.9;
+    this.starter += 1
     if (this.starter > this.max) {
       this.transparency = 120;
       this.starter = 25;
@@ -495,6 +537,7 @@ function Bucket(x, y, width, height) {
 /////////////// --- EVENTS & COLLISIONS --- ///////////////
 var moving4thPegsLeft = true;
 var moving8thPegsRight = true;
+
 //Moving the pegs before the update frame
 Events.on(engine, 'beforeUpdate', function (event) {
 
@@ -510,6 +553,22 @@ Events.on(engine, 'beforeUpdate', function (event) {
     moveLeft(movingPegsRight[0].body.position, movingPegsRight, 8);
   }
 
+  // move the left boost up and down
+  if (leftBoostPeg) {
+    if (leftBoostPeg.moveUp) {
+      moveUp(leftBoostPeg);
+    } else {
+      moveDown(leftBoostPeg);
+    }
+  }
+  // move the right boost up and down
+  if (rightBoostPeg) {
+    if (rightBoostPeg.moveUp) {
+      moveUp(rightBoostPeg);
+    } else {
+      moveDown(rightBoostPeg);
+    }
+  }
 });
 
 
@@ -541,8 +600,22 @@ function moveLeft(peg, pegArray, row) {
   }
 }
 
+function moveUp(peg) {
+  Body.translate(peg.body, { x: 0, y: -1 });
+  if (peg.body.position.y <= 430) {
+    peg.moveUp = false;
+  }
+}
+
+function moveDown(peg) {
+  Body.translate(peg.body, { x: 0, y: 1 });
+  if (peg.body.position.y >= 490) {
+    peg.moveUp = true;
+  }
+}
+
 // Collisions
-Events.on(engine, 'collisionEnd', function (event) {
+Events.on(engine, 'collisionStart', function (event) {
   //console.log(event.pairs[0]);
   // Peg Collision
   var peg;
@@ -570,11 +643,11 @@ Events.on(engine, 'collisionEnd', function (event) {
     boost = event.pairs[0].bodyA;
     hog = event.pairs[0].bodyB;
     console.log(event.pairs[0]);
-    Body.setVelocity(hog, { x: 0, y: -10 });
+    hog.hitBoostPeg(boost.position);
   }
   if (event.pairs[0].bodyB.label === 'boostPeg') {
     boost = event.pairs[0].bodyB;
     hog = event.pairs[0].bodyA;
-    Body.setVelocity(hog, { x: 0, y: -10 });
+    hog.hitBoostPeg(boost.position);
   }
 });
