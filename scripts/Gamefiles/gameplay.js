@@ -12,24 +12,64 @@ const bounds = screen.getBoundingClientRect();
 var engine = Engine.create();
 var runner;
 // Game board pieces
+
+// Images
 var hog;
+var banner;
+var credits;
+var loginAds;
+var manualPrize;
+var premiumSolo;
+var squareBanner;
+var raffleTicket;
+var solo;
+var textAds;
+//////////////// End of images
+
+// Disc/Puck objects
 var puck;
 var trail;
 var trailArray = [];
+//////////////// end of Disc/Puck objects
+
+// Enviornment Objects
 var ground;
 var walls;
+// PRIZE IMAGE IS SINGULAR FOR NOW
+var prize;
+
 var pegs = [];
 let pegColors = ['RoyalBlue', 'DarkTurquoise', 'HotPink', 'Red', 'Orange', 'Gold', 'LimeGreen'];
 var movingPegsLeft = [];
 var movingPegsRight = [];
+
 var leftBoostPeg;
 var rightBoostPeg;
+
 var buckets = [];
+/////////////// End of Environment objects
 //var discs = [];
 
 /////////////// --- SETTING UP FILE --- ///////////////
 function preload() {
   hog = loadImage('hedgehog-round-30.png');
+  cash = loadImage('$.png');
+  banner = loadImage('B.png');
+  credits = loadImage('C.png');
+  loginAds = loadImage('L.png');
+  manualPrize = loadImage('M.png');
+  premiumSolo = loadImage('PS.png');
+  squareBanner = loadImage('Q.png');
+  raffleTicket = loadImage('R.png');
+  solo = loadImage('S.png');
+  textAds = loadImage('T.png');
+}
+
+////////////// --- NETWORK CALLS --- ///////////////
+async function fetchPrizes() {
+  axios('https://websitetrafficgames.com/members/hedgehog_config.php?p=8').then((result) => {
+    console.log('RESULT', result);
+  })
 }
 
 // P5 initial setup
@@ -40,10 +80,13 @@ function setup() {
   //engine = Engine.create();
   //create objects/bodies
   //puck = new Puck(200, 100, 20);
-  //ground = new Ground(width / 2, height, width, 50);
+  ground = new Ground(width / 2, 700, width, 50);
   walls = new createWalls(50, height);
   createPegs(8);
   createBuckets();
+  ///////////// DEMO FOR PRIZES CHANGE/DELETE LATER
+  createPrizes();
+  ///////////// END DEMO FOR PRIZES
   //create the runner
   runner = Runner.create();
   //run the engine
@@ -62,8 +105,11 @@ function draw() {
     puck.show();
     puck.isOffScreen();
   }
-  //ground.show();
+  ground.show();
   walls.show();
+
+  prize.show();
+
   //Regular pegs
   for (var i = 0; i < pegs.length; i++) {
     pegs[i].show();
@@ -117,7 +163,7 @@ function startDrop(x, y) {
 function checkBounds(clickX, clickY) {
   console.log(bounds);
   console.log('X & Y: ', clickX, clickY);
-  return ((clickX > bounds.left && clickX < bounds.right) && (clickY > bounds.top && clickY < bounds.bottom - 500));
+  return ((clickX > bounds.left && clickX < bounds.right) && (clickY > 0 && clickY < 90));
 }
 
 
@@ -167,7 +213,7 @@ function Puck(x, y, diameter) {
 
   this.isOffScreen = function () {
     var pos = this.body.position;
-    if (pos.y > 620) {
+    if (pos.y > 700) {
       Composite.remove(engine.world, this.body);
       inProgress = false;
       trailArray = [];
@@ -214,13 +260,14 @@ function Ground(x, y, w, h) {
   this.body = Bodies.rectangle(x, y + (h / 2) - 5, w, h, { isStatic: true });
   this.w = w;
   this.h = h;
+  this.body.title = 'ground';
   Composite.add(engine.world, this.body);
 
   this.show = function () {
     var pos = this.body.position;
     push();
     noStroke();
-    fill(80, 20, 100);
+    fill(200, 20, 20);
     rectMode(CENTER);
     rect(x, y + (this.h / 2) - 5, this.w, this.h);
     pop();
@@ -282,13 +329,10 @@ function createPegs(n) {
   }
   // SIXTH ROW
   for (var i = 0; i < n - 1; i++) {
-    if (i === 3) {
-      var boostPeg = new BoostPeg(13 + (spacing / 2) + (spacing * i), 300, 10);
-      pegs.push(boostPeg);
-    } else {
-      var peg = new Peg(13 + (spacing / 2) + (spacing * i), 300, 10);
-      pegs.push(peg);
-    }
+
+    var peg = new Peg(13 + (spacing / 2) + (spacing * i), 300, 10);
+    pegs.push(peg);
+
   }
   // SEVENTH ROW
   for (var i = 0; i < n; i++) {
@@ -493,30 +537,30 @@ function boostPegLights(d) {
 
 function createBuckets() {
   // bucket one
-  var bucket1 = new Bucket(65, 620, 10, 75);
+  var bucket1 = new Bucket(65, 635, 10, 115);
   buckets.push(bucket1);
   // bucket two
-  var bucket2 = new Bucket(120, 620, 10, 75);
+  var bucket2 = new Bucket(120, 635, 10, 115);
   buckets.push(bucket2);
 
   // goal buckets
-  var goal1 = new Bucket(176, 620, 10, 75);
+  var goal1 = new Bucket(176, 635, 10, 115);
   buckets.push(goal1);
-  var goal2 = new Bucket(224, 620, 10, 75);
+  var goal2 = new Bucket(224, 635, 10, 115);
   buckets.push(goal2);
   ///////////////
 
   // bucket 3
-  var bucket3 = new Bucket(280, 620, 10, 75);
+  var bucket3 = new Bucket(280, 635, 10, 115);
   buckets.push(bucket3);
   // bucket 4
-  var bucket3 = new Bucket(335, 620, 10, 75);
+  var bucket3 = new Bucket(335, 635, 10, 115);
   buckets.push(bucket3);
 }
 
 function Bucket(x, y, width, height) {
   var chamfer = { radius: 10 }
-  var options = { isStatic: true, restitution: 0.7, friction: 0.8, chamfer: chamfer };
+  var options = { isStatic: true, restitution: 0.7, friction: 0.5, chamfer: chamfer };
   this.body = Bodies.rectangle(x, y, width, height, options);
   Composite.add(engine.world, this.body);
   this.x = x;
@@ -527,13 +571,27 @@ function Bucket(x, y, width, height) {
   this.show = function () {
     var pos = this.body.position;
     push();
-    fill(50, 120, 30);
+    fill(50, 180, 30);
     rectMode(CENTER);
     rect(this.x, this.y, this.width, this.height, 10);
     pop();
   }
 }
+// Create prize sections
+function createPrizes() {
+  prize = new Prize(32, 575, 30, 30);
+}
 
+// images above the buckets
+function Prize(x, y, width, height) {
+
+  this.show = function () {
+    push();
+    imageMode(CENTER);
+    image(banner, x, y, width, height)
+    pop();
+  }
+}
 /////////////// --- EVENTS & COLLISIONS --- ///////////////
 var moving4thPegsLeft = true;
 var moving8thPegsRight = true;
@@ -601,14 +659,14 @@ function moveLeft(peg, pegArray, row) {
 }
 
 function moveUp(peg) {
-  Body.translate(peg.body, { x: 0, y: -1 });
+  Body.translate(peg.body, { x: 0, y: -1.5 });
   if (peg.body.position.y <= 430) {
     peg.moveUp = false;
   }
 }
 
 function moveDown(peg) {
-  Body.translate(peg.body, { x: 0, y: 1 });
+  Body.translate(peg.body, { x: 0, y: 1.5 });
   if (peg.body.position.y >= 490) {
     peg.moveUp = true;
   }
