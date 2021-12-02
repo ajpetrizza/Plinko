@@ -11,7 +11,17 @@ const screen = document.getElementById('Plinko');
 const bounds = screen.getBoundingClientRect();
 var engine = Engine.create();
 var runner;
-// Game board pieces
+
+/////////////// --- USER INFORMATION --- //////////////
+var userID;
+var userPlaysLeft;
+var hasWon = false;
+var canPlay = false;
+var resetClicked = false;
+
+
+
+/////////////// --- Game board pieces --- //////////////
 
 // Images
 var hog;
@@ -35,8 +45,9 @@ var trailArray = [];
 // Enviornment Objects
 var ground;
 var walls;
-// PRIZE IMAGE IS SINGULAR FOR NOW
-var prize;
+// Array of prizes to show
+var prizes = [];
+var scoreZones = [];
 
 var pegs = [];
 let pegColors = ['RoyalBlue', 'DarkTurquoise', 'HotPink', 'Red', 'Orange', 'Gold', 'LimeGreen'];
@@ -48,7 +59,8 @@ var rightBoostPeg;
 
 var buckets = [];
 /////////////// End of Environment objects
-//var discs = [];
+
+/////////////// --- END OF GAMEBOARD PIECES --- ////////////
 
 /////////////// --- SETTING UP FILE --- ///////////////
 function preload() {
@@ -66,16 +78,89 @@ function preload() {
 }
 
 ////////////// --- NETWORK CALLS --- ///////////////
-async function fetchPrizes() {
-  axios('https://websitetrafficgames.com/members/hedgehog_config.php?p=8').then((result) => {
-    console.log('RESULT', result);
-  })
+// function to clear screen of elements
+function clearScreen() {
+  removeElements();
+}
+
+// function used to give the user a heads up!
+function showMessage(text, scoreMessage) {
+  let div;
+  let button;
+  if (scoreMessage) {
+    div = createDiv(`${text} ${scoreMessage}`);
+    div.position(13, 300);
+    button = createButton('Play Again!');
+    button.position(175, 320);
+    button.mousePressed(resetGame);
+  } else {
+    div = createDiv(text);
+    div.position(13, 300);
+    button = createButton('Okay');
+    button.position(190, 320);
+    button.mousePressed(clearScreen);
+  }
+  div.style('backgroundColor', 'black');
+  div.style('color', 'white');
+  div.style('width', '387px');
+  div.style('text-align', 'center');
+}
+
+// grabs all needed info to start!
+async function fetchGameData() {
+  // grab user ID to make sure they can play!
+  if (!userID) {
+    await axios('https://websitetrafficgames.com/members/hedgehog_config.php?uid').then((result) => {
+      userID = result.data;
+    });
+  }
+  // now make sure they have plays left
+  if (userID !== '' && userID) {
+    await axios(`https://websitetrafficgames.com/members/hedgehog_config.php?d=${userID}`).then((result) => {
+      userPlaysLeft = result.data;
+    });
+    // If they have plays left fetch those prizes
+    if (userPlaysLeft > 0) {
+      var prizeInfoArray = [];
+      await axios('https://websitetrafficgames.com/members/hedgehog_config.php?choose').then((result) => {
+        var rawArray = result.data.split('<pre>');
+        var lastValue = rawArray.pop();
+        var lastString = lastValue.split('</pre>')[0];
+        rawArray.push(lastString);
+        // Loop over this array starting at 1 because of structure;
+        for (var i = 1; i < rawArray.length; i++) {
+          var rawString = rawArray[i].replace(/^\[([\s\S]*)]$/, '$1');
+          var jsonString = rawString.replace(/,(\s*)}$/, '$1}');
+          var obj = JSON.parse(jsonString);
+          prizeInfoArray.push(obj);
+        }
+      });
+
+      if (prizeInfoArray.length === 7) {
+        createPrizes(prizeInfoArray);
+        // now we set canPlay to true
+        if (prizes.length === 7) {
+          createScores();
+          canPlay = true;
+        }
+      }
+    } else {
+      showMessage('You are out of plays!');
+      canPlay = false;
+    }
+
+  } else {
+    canPlay = false;
+  }
+
+
 }
 
 // P5 initial setup
 function setup() {
   var canvas = createCanvas(400, 600);
   canvas.parent('Plinko');
+  fetchGameData();
   // create the engine
   //engine = Engine.create();
   //create objects/bodies
@@ -84,9 +169,6 @@ function setup() {
   walls = new createWalls(50, height);
   createPegs(8);
   createBuckets();
-  ///////////// DEMO FOR PRIZES CHANGE/DELETE LATER
-  createPrizes();
-  ///////////// END DEMO FOR PRIZES
   //create the runner
   runner = Runner.create();
   //run the engine
@@ -103,12 +185,19 @@ function draw() {
     }
     //puck on top
     puck.show();
-    puck.isOffScreen();
+    puck.shouldRemove();
   }
   ground.show();
   walls.show();
+  if (prizes.length !== 0) {
+    for (var i = 0; i < prizes.length; i++) {
+      prizes[i].show();
+    }
+  }
 
-  prize.show();
+  for (var i = 0; i < scoreZones.length; i++) {
+    scoreZones[i].show();
+  }
 
   //Regular pegs
   for (var i = 0; i < pegs.length; i++) {
@@ -152,18 +241,26 @@ function mousePressed() {
 function startDrop(x, y) {
   //check if the mouse is in the window we allow for dropping
   if (checkBounds(x, y)) {
-    puck = new Puck(x, y, 30);
-    trail = new Trail(x, y, 28);
-    trailArray.push(trail);
-    inProgress = true;
+    // check if they can play if they click at the top
+    if (canPlay) {
+      // subtract from their available games
+      axios(`https://websitetrafficgames.com/members/hedgehog_config.php?d2=${userID}`);
+      // add to total number of plays today
+      axios(`https://websitetrafficgames.com/members/hedgehog_config.php?t2=${userID}`);
+      puck = new Puck(x, y, 30);
+      trail = new Trail(x, y, 28);
+      trailArray.push(trail);
+      inProgress = true;
+      canPlay = false;
+    } else {
+      fetchGameData();
+    }
   }
 }
 
 //function to check if click was in our bounds
 function checkBounds(clickX, clickY) {
-  console.log(bounds);
-  console.log('X & Y: ', clickX, clickY);
-  return ((clickX > bounds.left && clickX < bounds.right) && (clickY > 0 && clickY < 90));
+  return ((clickX > 7 && clickX < 394) && (clickY > 0 && clickY < 90));
 }
 
 
@@ -181,12 +278,10 @@ function Puck(x, y, diameter) {
   this.body.label = 'hog';
 
   this.body.hitBoostPeg = function (boostPosition) {
-    console.log('HOG POSITION ', this.position);
-    console.log('BOOST PEG POSITION ', boostPosition);
     var xVelocity = (this.position.x) - (boostPosition.x);
     var yVelocity = (this.position.y) - (boostPosition.y);
-    xVelocity /= 5;
-    yVelocity /= 5;
+    xVelocity /= 6;
+    yVelocity /= 6;
     console.log('CURRENT X Y velocity', xVelocity, yVelocity);
     Body.setVelocity(this, { x: xVelocity, y: yVelocity });
 
@@ -211,12 +306,13 @@ function Puck(x, y, diameter) {
     this.addTrail();
   }
 
-  this.isOffScreen = function () {
+  this.shouldRemove = function () {
     var pos = this.body.position;
-    if (pos.y > 700) {
+    if (resetClicked) {
       Composite.remove(engine.world, this.body);
       inProgress = false;
       trailArray = [];
+      resetClicked = false;
     }
   }
 
@@ -578,17 +674,114 @@ function Bucket(x, y, width, height) {
   }
 }
 // Create prize sections
-function createPrizes() {
-  prize = new Prize(32, 575, 30, 30);
+function createPrizes(prizeInfoArray) {
+  var xValue = 32;
+  var prizeIndex = 0;
+  for (var i = 0; i < prizeInfoArray.length; i++) {
+    prizeIndex += 1;
+    var prize = new Prize(xValue, 575, 30, 30, prizeInfoArray[i][`prizeid${prizeIndex}`], prizeInfoArray[i].Amount, prizeInfoArray[i].Type);
+    if (i !== 2 && i !== 3) {
+      xValue += 60;
+    } else {
+      xValue += 48;
+    }
+
+    prizes.push(prize);
+  }
+
 }
 
-// images above the buckets
-function Prize(x, y, width, height) {
+// images above the buckets and data
+function Prize(x, y, width, height, id, amount, type) {
+  this.type = type;
+  this.x = x;
+  this.y = y;
+  this.amount = amount;
+  this.prizeid = id;
 
   this.show = function () {
     push();
     imageMode(CENTER);
-    image(banner, x, y, width, height)
+    this.displayImage(this.type);
+    pop();
+  }
+
+  this.displayImage = function (type) {
+    // grab the correct image
+    switch (type) {
+      case '$':
+        image(cash, x, y, width, height);
+        break;
+      case 'B':
+        image(banner, x, y, width, height);
+        break;
+      case 'C':
+        image(credits, x, y, width, height);
+        break;
+      case 'L':
+        image(loginAds, x, y, width, height);
+        break;
+      case 'M':
+        image(manualPrize, x, y, width, height);
+        break;
+      case 'PS':
+        image(premiumSolo, x, y, width, height);
+        break;
+      case 'Q':
+        image(squareBanner, x, y, width, height);
+        break;
+      case 'R':
+        image(raffleTicket, x, y, width, height);
+        break;
+      case 'S':
+        image(solo, x, y, width, height);
+        break;
+      case 'T':
+        image(textAds, x, y, width, height);
+        break;
+      default:
+        image(banner, x, y, width, height);
+        break;
+    }
+  }
+}
+
+// Create score zones
+function createScores() {
+  if (scoreZones.length === 7) {
+    for (var i = 0; i < prizes.length; i++) {
+      scoreZones[i].body.prizeId = prizes[i].prizeid;
+      scoreZones[i].body.type = prizes[i].type;
+      scoreZones[i].body.amount = prizes[i].amount;
+    }
+  } else {
+    for (var i = 0; i < prizes.length; i++) {
+      var x = prizes[i].x;
+      var y = prizes[i].y + 100;
+      var id = prizes[i].prizeid;
+      var amount = prizes[i].amount;
+      var type = prizes[i].type;
+      var scoreZone = new Score(x, y, id, amount, type, i + 1);
+      scoreZones.push(scoreZone);
+    }
+  }
+}
+
+function Score(x, y, id, amount, type, slot) {
+  var options = { isStatic: true, restitution: 0, friction: 1 };
+  this.body = Bodies.circle(x, y, 5, options);
+  Composite.add(engine.world, this.body);
+  this.body.label = 'score';
+  this.body.prizeId = id;
+  this.body.type = type;
+  this.body.slot = slot;
+  this.body.amount = amount;
+
+  this.show = function () {
+    var pos = this.body.position;
+    push();
+    fill(200, 30, 80);
+    circle(pos.x, pos.y, 10);
     pop();
   }
 }
@@ -673,6 +866,57 @@ function moveDown(peg) {
 }
 
 // Collisions
+
+function formatPrizeMessage(amount, letter) {
+  switch (letter) {
+    case '$':
+      return `$${amount} in cash!`
+      break;
+    case 'B':
+      return `${amount} banner(s)!`
+      break;
+    case 'C':
+      return `${amount} credits!`
+      break;
+    case 'L':
+      return `${amount} login ads!`
+      break;
+    case 'M':
+      return `${amount} manual prize!`
+      break;
+    case 'PS':
+      return `${amount} premium solos!`
+      break;
+    case 'Q':
+      return `${amount} square banners!`
+      break;
+    case 'R':
+      return `${amount} raffle ticket(s)!`
+      break;
+    case 'S':
+      return `${amount}  solos!`
+      break;
+    case 'T':
+      return `${amount} text ads!`
+      break;
+    default:
+      return `${amount} banners!`
+      break;
+  }
+}
+
+function resetGame() {
+  resetClicked = true;
+  prizes = [];
+  removeElements();
+  // for (var i = 0; i < scoreZones.length; i++) {
+  //   console.log('REMOVING: ', scoreZones[i]);
+  //   Composite.remove(engine.world, scoreZones[i]);
+  // }
+  hasWon = false;
+  fetchGameData();
+}
+
 Events.on(engine, 'collisionStart', function (event) {
   //console.log(event.pairs[0]);
   // Peg Collision
@@ -700,12 +944,37 @@ Events.on(engine, 'collisionStart', function (event) {
   if (event.pairs[0].bodyA.label === 'boostPeg') {
     boost = event.pairs[0].bodyA;
     hog = event.pairs[0].bodyB;
-    console.log(event.pairs[0]);
     hog.hitBoostPeg(boost.position);
   }
   if (event.pairs[0].bodyB.label === 'boostPeg') {
     boost = event.pairs[0].bodyB;
     hog = event.pairs[0].bodyA;
     hog.hitBoostPeg(boost.position);
+  }
+
+  // SCORE COLLISIONS
+  if (event.pairs[0].bodyA.label === 'score') {
+    score = event.pairs[0].bodyA;
+    hog = event.pairs[0].bodyB;
+    // post the prize
+    if (!hasWon) {
+      hasWon = true;
+      axios.post(`https://websitetrafficgames.com/members/hedgehog_config.php?w=${score.prizeId}&uid=${userID}`);
+      var message = formatPrizeMessage(score.amount, score.type);
+      showMessage('You have won: ', message);
+    }
+    console.log(score.slot);
+  }
+  if (event.pairs[0].bodyB.label === 'boostPeg') {
+    score = event.pairs[0].bodyB;
+    hog = event.pairs[0].bodyA;
+    // post the prize
+    if (!hasWon) {
+      hasWon = true;
+      axios.post(`https://websitetrafficgames.com/members/hedgehog_config.php?w=${score.prizeId}&uid=${userID}`);
+      var message = formatPrizeMessage(score.amount, score.type);
+      showMessage('You have won: ', message);
+    }
+    console.log(score.slot);
   }
 });
