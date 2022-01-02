@@ -85,24 +85,26 @@ function clearScreen() {
 
 // function used to give the user a heads up!
 function showMessage(text, scoreMessage) {
+  var gamex = bounds.x;
+  var gamey = bounds.y;
   let div;
   let button;
   if (scoreMessage) {
     div = createDiv(`${text} ${scoreMessage}`);
-    div.position(13, 300);
+    div.position(gamex, gamey + 300);
     button = createButton('Play Again!');
-    button.position(175, 320);
+    button.position(gamex + 162, gamey + 320);
     button.mousePressed(resetGame);
   } else {
     div = createDiv(text);
-    div.position(13, 300);
+    div.position(gamex, gamey + 300);
     button = createButton('Okay');
-    button.position(190, 320);
+    button.position(gamex + 178, gamey + 320);
     button.mousePressed(clearScreen);
   }
   div.style('backgroundColor', 'black');
   div.style('color', 'white');
-  div.style('width', '387px');
+  div.style('width', '400px');
   div.style('text-align', 'center');
 }
 
@@ -116,11 +118,17 @@ async function fetchGameData() {
   }
   // now make sure they have plays left
   if (userID !== '' && userID) {
+    // Check if they have played 10 times already
+    let playsToday;
+    await axios(`https://websitetrafficgames.com/members/hedgehog_config.php?t=${userID}`).then((result) => {
+      playsToday = result.data;
+    });
+
     await axios(`https://websitetrafficgames.com/members/hedgehog_config.php?d=${userID}`).then((result) => {
       userPlaysLeft = result.data;
     });
     // If they have plays left fetch those prizes
-    if (userPlaysLeft > 0) {
+    if (userPlaysLeft > 0 && playsToday < 10) {
       var prizeInfoArray = [];
       await axios('https://websitetrafficgames.com/members/hedgehog_config.php?choose').then((result) => {
         var rawArray = result.data.split('<pre>');
@@ -282,7 +290,6 @@ function Puck(x, y, diameter) {
     var yVelocity = (this.position.y) - (boostPosition.y);
     xVelocity /= 6;
     yVelocity /= 6;
-    console.log('CURRENT X Y velocity', xVelocity, yVelocity);
     Body.setVelocity(this, { x: xVelocity, y: yVelocity });
 
   }
@@ -963,7 +970,6 @@ Events.on(engine, 'collisionStart', function (event) {
       var message = formatPrizeMessage(score.amount, score.type);
       showMessage('You have won: ', message);
     }
-    console.log(score.slot);
   }
   if (event.pairs[0].bodyB.label === 'boostPeg') {
     score = event.pairs[0].bodyB;
@@ -975,6 +981,5 @@ Events.on(engine, 'collisionStart', function (event) {
       var message = formatPrizeMessage(score.amount, score.type);
       showMessage('You have won: ', message);
     }
-    console.log(score.slot);
   }
 });
